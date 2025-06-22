@@ -1,0 +1,24 @@
+{
+    "$schema": "../../umbraco-package-schema.json",
+    "name": "My TypeScript Extension",
+    "version": "0.1.0",
+    "extensions": [
+        {
+            "type": "dashboard",
+            "alias": "My.Dashboard.MyTypeScriptExtension",
+            "name": "My TypeScript Extension",
+            "element": "/App_Plugins/Client/client.js",
+            "weight": -1,
+            "meta": {
+                "label": "My TypeScript Extension",
+                "pathname": "my-typescript-extension"
+            },
+            "conditions": [
+                {
+                    "alias": "Umb.Condition.SectionAlias",
+                    "match": "Umb.Section.Content"
+                }
+            ]
+        }
+    ]
+}
