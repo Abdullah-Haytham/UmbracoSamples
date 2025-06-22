@@ -1,0 +1,134 @@
+﻿@using Umbraco.Cms.Core.Security
+@using Umbraco.Cms.Web.Common.PublishedModels;
+@using Umbraco.Cms.Web.Common.Security;
+@inject IMemberManager MemberManager;
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    Layout = "masterTemplate.cshtml";
+
+    ViewData["Title"] = "Add Blog"; 
+
+    Guid currentMemberGuid = Guid.Empty;
+    string memberName = "Guest";
+
+    // Attempt to get the currently logged-in member
+    var currentMember = await MemberManager.GetCurrentMemberAsync();
+    if (currentMember != null)
+    {
+        currentMemberGuid = currentMember.Key; // Get the unique GUID of the member
+        memberName = currentMember.Name; // Get the member's name
+    }
+}
+
+<div class="container bg-white p-4 rounded card shadow-sm">
+    <h1 class="h3 text-center mb-4 text-gray-800">Create New Blog Post</h1>
+
+    @if (currentMemberGuid == Guid.Empty)
+    {
+        <div class="alert alert-warning" role="alert">
+            You must be logged in to create a blog post. Please <a href="/login" class="alert-link">log in</a>.
+            <br />
+            (For demonstration, if not logged in, the post will be associated with a default empty GUID: <code>00000000-0000-0000-0000-000000000000</code>).
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info" role="alert">
+            Posting as: <strong>@memberName</strong> (User ID: <code>@currentMemberGuid</code>)
+        </div>
+    }
+
+
+    <form id="addPostForm" class="mb-4">
+        <div class="mb-3">
+            <label for="title" class="form-label">Title</label>
+            <input type="text"
+                   id="title"
+                   name="title"
+                   class="form-control rounded"
+                   placeholder="Enter post title"
+                   required />
+        </div>
+
+        <div class="mb-3">
+            <label for="content" class="form-label">Content</label>
+            <textarea id="content"
+                      name="content"
+                      rows="8"
+                      class="form-control rounded"
+                      placeholder="Write your post content here..."
+                      required></textarea>
+        </div>
+
+        <!-- Hidden input for UserId - dynamically populated by Umbraco Razor -->
+        <input type="hidden" id="userId" name="userId" value="@currentMemberGuid" />
+
+        <button type="submit"
+                class="btn btn-primary w-100 rounded">
+            Create Post
+        </button>
+    </form>
+
+    <div id="message" class="alert d-none" role="alert"></div>
+</div>
+
+<script>
+    const form = document.getElementById('addPostForm');
+    const messageDiv = document.getElementById('message');
+    const userIdInput = document.getElementById('userId');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault(); // Prevent default form submission
+
+        messageDiv.classList.add('d-none'); // Hide previous messages
+        messageDiv.classList.remove('alert-success', 'alert-danger'); // Reset message styles
+
+        const title = document.getElementById('title').value;
+        const content = document.getElementById('content').value;
+        const userId = userIdInput.value; // Use the value from the hidden input
+
+        // Basic validation
+        if (!title || !content || !userId) {
+            showMessage('Please fill in all fields.', 'danger');
+            return;
+        }
+
+        // Prepare the data payload
+        const postData = {
+            userId: userId,
+            title: title,
+            content: content,
+            createdAt: new Date().toISOString() // Set current timestamp
+        };
+
+        try {
+            const response = await fetch('/api/posts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(postData),
+            });
+
+            if (response.ok) {
+                const createdPost = await response.json();
+                showMessage(`Post created successfully! ID: ${createdPost.id}`, 'success');
+                form.reset(); // Clear the form
+                // Optionally, redirect the user or update a list of posts
+            } else {
+                const errorText = await response.text();
+                showMessage(`Error creating post: ${response.status} - ${errorText || response.statusText}`, 'danger');
+            }
+        } catch (error) {
+            showMessage(`Network error: ${error.message}`, 'danger');
+            console.error('Fetch error:', error);
+        }
+    });
+
+    function showMessage(msg, type) {
+        messageDiv.textContent = msg;
+        messageDiv.classList.remove('d-none');
+        messageDiv.classList.add(`alert-${type}`);
+    }
+</script>
+

@@ -1,7 +1,8 @@
 ﻿using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.Notifications;
+using UmbracoBlog.NotificationHandlers;
 
-namespace UmbracoBlog.Migrations;
+namespace UmbracoBlog.Composers;
 
 public class BlogComposer : IComposer
 {

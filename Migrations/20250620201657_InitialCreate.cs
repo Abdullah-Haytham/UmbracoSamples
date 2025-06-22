@@ -19,7 +19,7 @@ namespace UmbracoBlog.Migrations
                         .Annotation("Sqlite:Autoincrement", true),
                     title = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
                     content = table.Column<string>(type: "TEXT", nullable: false),
-                    created_at = table.Column<DateTime>(type: "datetime", nullable: false, computedColumnSql: "CURRENT_TIMESTAMP")
+                    created_at = table.Column<DateTime>(type: "datetime", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
                 constraints: table =>
                 {

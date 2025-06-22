@@ -26,7 +26,7 @@ public class BlogContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .IsRequired()
                 .HasColumnType("datetime")
-                .HasComputedColumnSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("created_at");
         });
     }

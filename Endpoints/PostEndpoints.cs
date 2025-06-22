@@ -17,6 +17,8 @@ public static class PostApi
     public static RouteGroupBuilder MapPostApi(this RouteGroupBuilder group)
     {
         group.MapGet("/all", GetAllPosts);
+        group.MapGet("/{id:int}", GetPostById);
+        group.MapPost("/", CreatePost);
         return group;
     }
 

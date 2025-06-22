@@ -30,16 +30,19 @@ namespace UmbracoBlog.Migrations
                         .HasColumnName("content");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAddOrUpdate()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime")
                         .HasColumnName("created_at")
-                        .HasComputedColumnSql("CURRENT_TIMESTAMP");
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("TEXT")
                         .HasColumnName("title");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
