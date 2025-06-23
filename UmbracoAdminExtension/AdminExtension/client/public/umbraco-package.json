@@ -10,8 +10,8 @@
             "element": "/App_Plugins/Client/client.js",
             "weight": -1,
             "meta": {
-                "label": "My TypeScript Extension",
-                "pathname": "my-typescript-extension"
+                "label": "Todos",
+                "pathname": "todos"
             },
             "conditions": [
                 {
