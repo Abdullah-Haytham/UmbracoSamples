@@ -1,8 +1,22 @@
+using Our.Umbraco.FullTextSearch;
+
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.CreateUmbracoBuilder()
     .AddBackOffice()
     .AddWebsite()
+    .AddFullTextSearch(options =>
+    {
+        options.DefaultTitleField = "title";
+        options.DisallowedContentTypeAliases = new List<string> { "verySecretContent" };
+        options.DisallowedPropertyAliases = new List<string> { "hideInSearch" };
+        options.Enabled = true;
+        options.FullTextPathField = "MyCustomPathField";
+        options.FullTextContentField = "MyCustomContentField";
+        options.HighlightPattern = "<span class=\"bold\">{0}</span>";
+        options.RenderingActiveKey = "HiEverybody!";
+        options.XPathsToRemove = new List<string>() { "//script" };
+    })
     .AddComposers()
     .Build();
 
