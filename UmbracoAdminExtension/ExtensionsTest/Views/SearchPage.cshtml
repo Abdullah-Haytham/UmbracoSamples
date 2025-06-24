@@ -1,0 +1,74 @@
+﻿@using Umbraco.Cms.Web.Common.PublishedModels;
+@using Umbraco.Cms.Core.Models.PublishedContent; @* Added for robustness for Url() extension *@
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inject Our.Umbraco.FullTextSearch.Helpers.FullTextSearchHelper FullTextSearchHelper
+@{
+    Layout = null;
+
+    // Get the search term from the 'q' query parameter.
+    // If no 'q' parameter is present, searchTerm will be an empty string.
+    var searchTerm = Context.Request.Query["q"].ToString();
+
+    // Initialize searchResult to null.
+    Our.Umbraco.FullTextSearch.Interfaces.IFullTextSearchResult searchResult = null;
+
+    // Only perform the search if a valid search term is provided.
+    // This prevents searching when the page initially loads without a query.
+    if (!string.IsNullOrWhiteSpace(searchTerm))
+    {
+        searchResult = FullTextSearchHelper.Search(searchTerm);
+    }
+}
+
+<h1>Search Our Site</h1>
+
+<!-- Search Form: Submits to /search?q=yourInputValue -->
+<form action="/search" method="GET">
+    <label for="searchQuery">Search:</label>
+    <input type="text" id="searchQuery" name="q" value="@searchTerm" placeholder="Enter your search query..." />
+    <button type="submit">Search</button>
+</form>
+
+<hr />
+
+@if (searchResult != null)
+{
+    <p>Total Results: @searchResult.TotalResults</p>
+    <p>Current Page: @searchResult.CurrentPage</p>
+    <p>Total Pages: @searchResult.TotalPages</p>
+
+    @if (searchResult.Results != null && searchResult.Results.Any())
+    {
+        <h2>Results:</h2>
+        <ul>
+            @foreach (var result in searchResult.Results)
+            {
+                <li>
+                    @* Added null check for result.Content before calling Url() for safety *@
+                    <a href="@(result.Content != null ? result.Content.Url() : "#")">@result.Title</a>
+                    <p>
+                        @result.Summary
+                    </p>
+                    <small>
+                        Url: @(result.Content != null ? result.Content.Url() : "N/A")<br />
+                        Id: @result.Id<br />
+                        Last updated: @(result.Content.UpdateDate)<br />
+                        Score: @result.Score
+                    </small>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No results found for "@searchTerm".</p>
+    }
+}
+else if (!string.IsNullOrWhiteSpace(searchTerm))
+{
+    <p>SearchResult is null. This indicates a problem with the search helper or index even with a search term.</p>
+}
+else
+{
+    <p>Enter a term in the search box above to find content.</p>
+}
