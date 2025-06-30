@@ -8,6 +8,7 @@ using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Core.Strings;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Security;
+using Umbraco.Cms.Infrastructure.Scoping;
 
 namespace Relations.Endpoints;
 
@@ -51,39 +52,46 @@ public static class MemberApi
         }
     }
     public static async Task<IResult> UploadContent(
-        [FromForm] IFormFile img,
-        IMediaService mediaService,
-        MediaFileManager mediaFileManager,
-        MediaUrlGeneratorCollection mediaUrlGenerator,
-        IShortStringHelper shortStringHelper,
-        IContentTypeBaseServiceProvider contentTypeBaseServiceProvider,
-        IMemberManager memberManager,
-        IRelationService relationService)
+    [FromForm] IFormFile img,
+    IMediaService mediaService,
+    MediaFileManager mediaFileManager,
+    MediaUrlGeneratorCollection mediaUrlGenerator,
+    IShortStringHelper shortStringHelper,
+    IContentTypeBaseServiceProvider contentTypeBaseServiceProvider,
+    IMemberManager memberManager,
+    IMemberService memberService,
+    IRelationService relationService,
+    IContentService contentService,
+    IScopeProvider scopeProvider
+)
     {
         if (img == null || img.Length == 0)
-        {
             return Results.BadRequest("No image file provided.");
-        }
-
         if (!img.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-        {
             return Results.BadRequest("Only image files are allowed.");
-        }
 
         try
         {
-            // This is the part to get the current member
+            // Get current logged-in member
             int userId = await GetCurrentMemberId(memberManager);
             if (userId == int.MinValue)
                 return Results.BadRequest("User not logged in");
 
-            // This is the part to save the media
+            var member = memberService.GetById(userId); // ✅ Synchronous
+            if (member == null)
+                return Results.BadRequest("Member not found");
+
+            Guid memberKey = member.Key;
+            var memberUdi = new GuidUdi(Constants.UdiEntityType.Member, memberKey);
+
+            // Ensure media folder exists
             const string folderName = "user-uploads";
-            int parentFolderId = Constants.System.Root; 
+            int parentFolderId = Constants.System.Root;
 
             var rootMedia = mediaService.GetRootMedia();
             IMedia userUploadsFolder = rootMedia
-                .FirstOrDefault(m => m.Name.Equals(folderName, StringComparison.OrdinalIgnoreCase) && m.ContentType.Alias == Constants.Conventions.MediaTypes.Folder);
+                .FirstOrDefault(m => m.Name.Equals(folderName, StringComparison.OrdinalIgnoreCase)
+                    && m.ContentType.Alias == Constants.Conventions.MediaTypes.Folder);
 
             if (userUploadsFolder == null)
             {
@@ -92,71 +100,96 @@ public static class MemberApi
 
                 if (!saveResult.Success)
                 {
-                    Console.WriteLine($"Error creating folder '{folderName}': {saveResult.Exception?.Message}");
                     return Results.StatusCode(StatusCodes.Status500InternalServerError);
                 }
             }
 
             parentFolderId = userUploadsFolder.Id;
 
-            IMedia newMedia = mediaService.CreateMedia(
-                img.FileName,
-                parentFolderId, 
-                Constants.Conventions.MediaTypes.Image 
-            );
-
+            IMedia newMedia = mediaService.CreateMedia(img.FileName, parentFolderId, Constants.Conventions.MediaTypes.Image);
             await using (var stream = img.OpenReadStream())
             {
-                newMedia.SetValue(
-                    mediaFileManager,
-                    mediaUrlGenerator,
-                    shortStringHelper,
-                    contentTypeBaseServiceProvider,
-                    Constants.Conventions.Media.File,
-                    img.FileName,
-                    stream
-                );
+                newMedia.SetValue(mediaFileManager, mediaUrlGenerator, shortStringHelper, contentTypeBaseServiceProvider,
+                    Constants.Conventions.Media.File, img.FileName, stream);
             }
 
-            mediaService.Save(newMedia); // This line saves the new Media to the database
+            mediaService.Save(newMedia);
 
-            // This is the part for Relations
+            // Handle relation
             var relationType = relationService.GetRelationTypeByAlias("userUploads");
             if (relationType == null)
             {
-
-                Guid memberObjectType = Constants.ObjectTypes.Member;
-                Guid mediaObjectType = Constants.ObjectTypes.Media;
-
-                // Create a new relation type
-                var newRelationType = new RelationType(
-                                name: "User Uploads",
-                                alias: "userUploads",
-                                isBidrectional: true,
-                                parentObjectType: memberObjectType,
-                                childObjectType: mediaObjectType,
-                                isDependency: false 
-                            );
-                relationService.Save(newRelationType);
-                relationType = newRelationType;
-                Console.WriteLine($"RelationType 'User Uploads' (userUploads) created successfully.");
+                relationType = new RelationType(
+                    "User Uploads",
+                    "userUploads",
+                    isBidrectional: true,
+                    parentObjectType: Constants.ObjectTypes.Member,
+                    childObjectType: Constants.ObjectTypes.Media,
+                    isDependency: false
+                );
+                relationService.Save(relationType);
             }
 
             relationService.Relate(userId, newMedia.Id, relationType);
-            
+
+            // --- CREATE MEMBER GALLERY PAGE IF NOT EXISTS ---
+            const string listingDocType = "membersListingPage";
+            const string galleryDocType = "memberMediaGallery";
+            const string galleryMemberProp = "associatedMember";
+
+            using (var scope = scopeProvider.CreateScope(autoComplete: true))
+            {
+                var homePage = contentService
+                    .GetRootContent()
+                    .FirstOrDefault(x => x.ContentType.Alias == "home"); // Adjust alias if needed
+
+                if (homePage == null)
+                {
+                    // Home page not found
+                    return Results.StatusCode(StatusCodes.Status500InternalServerError);
+                }
+
+                // Then get the membersListingPage under Home
+                var listingPage = contentService
+                    .GetPagedChildren(homePage.Id, 0, int.MaxValue, out _)
+                    .FirstOrDefault(x => x.ContentType.Alias == listingDocType);
+
+                if (listingPage == null)
+                {
+                    // Listing page not found under Home
+                    return Results.StatusCode(StatusCodes.Status500InternalServerError);
+                }
+
+
+                var existingGallery = contentService
+                    .GetPagedChildren(listingPage.Id, 0, int.MaxValue, out _)
+                    .FirstOrDefault(x =>
+                        x.ContentType.Alias == galleryDocType &&
+                        x.GetValue<string>(galleryMemberProp) == memberUdi.ToString());
+
+                if (existingGallery == null)
+                {
+                    var newGallery = contentService.Create($"{member.Name} gallery", listingPage.Id, galleryDocType);
+                    newGallery.SetValue(galleryMemberProp, memberUdi.ToString());
+
+                    contentService.Save(newGallery);
+                    contentService.Publish(newGallery, cultures: new[] { "*" });
+                }
+                else if (!existingGallery.Published)
+                {
+                    contentService.Publish(existingGallery, cultures: new[] { "*" });
+                }
+            }
 
             return Results.Ok(new
             {
-                Message = $"Image '{newMedia.Name}' uploaded successfully to '{folderName}'!",
+                Message = $"Image '{newMedia.Name}' uploaded and gallery ensured.",
                 MediaId = newMedia.Id,
-                MediaName = newMedia.Name,
+                MediaName = newMedia.Name
             });
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error uploading image: {ex.Message}");
-            Console.WriteLine(ex.StackTrace);
-
             return Results.StatusCode(StatusCodes.Status500InternalServerError);
         }
     }
