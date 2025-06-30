@@ -1,0 +1,86 @@
+﻿@using Umbraco.Cms.Web.Common.PublishedModels;
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    ViewData["Title"] = "Upload Member Content";
+    // We'll use TempData for messages, so no direct model property needed for them here
+    string message = TempData["Message"] as string;
+    bool isSuccess = TempData["IsSuccess"] as bool? ?? false;
+}
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f8fafc; /* Tailwind's gray-50 */
+    }
+</style>
+
+<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg">
+        <div class="text-center">
+            <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
+                Upload New Content
+            </h2>
+            <p class="mt-2 text-sm text-gray-600">
+                Upload an image to your Umbraco media library.
+            </p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(message))
+        {
+            <div class="rounded-md @(isSuccess ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700") p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        @if (isSuccess)
+                        {
+                            <!-- Green check icon -->
+                            <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                        }
+                        else
+                        {
+                            <!-- Red x icon -->
+                            <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                        }
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium @(isSuccess ? "text-green-800" : "text-red-800")">
+                            @message
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* The form now posts to the custom URL handled by the new controller *@
+        <form class="mt-8 space-y-6" action="/members/upload-content" method="POST" enctype="multipart/form-data">
+            @* Ensure anti-forgery token is present for security *@
+            @Html.AntiForgeryToken()
+
+            <div class="rounded-md shadow-sm -space-y-px">
+                <div>
+                    <label for="imageFile" class="sr-only">Image File</label>
+                    <input id="imageFile" name="img" type="file" required class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" accept="image/*">
+                </div>
+            </div>
+
+            <div>
+                <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <!-- Heroicon name: solid/upload -->
+                        <svg class="h-5 w-5 text-indigo-500 group-hover:text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path d="M2.003 5.88l1.794 1.794L6.5 4.975l-2.703-2.703L.297 3.468a1 1 0 000 1.414zM8 4a2 2 0 00-2-2H4a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V4zm10 0a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V4z" />
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-11a1 1 0 10-2 0v4a1 1 0 102 0V7zm4 0a1 1 0 10-2 0v4a1 1 0 102 0V7z" clip-rule="evenodd" />
+                        </svg>
+                    </span>
+                    Upload Image
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
